@@ -91,7 +91,8 @@ sfs.readdirSync('/');
 ### Subscribe to events
 
 The returned filesystem object is also an event emitter, you can subscribe
-to specific filesystem actions using the `.on()` method:
+to specific filesystem actions using the `.on()` method, in that case you
+will receive only actions for that method:
 
 ```js
 sfs.on('readdirSync', async function(action) {
@@ -99,6 +100,13 @@ sfs.on('readdirSync', async function(action) {
 });
 
 sfs.readdirSync('/');
+```
+
+Listening for `action` event is equivalent to subscribing using `.subscribe()`.
+
+``js
+sfs.on('action', listener);
+sfs.subscribe(listener);
 ```
 
 
