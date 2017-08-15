@@ -6,7 +6,7 @@ Install:
 
     npm install --save spyfs
 
-or
+    or
 
     yarn add spyfs
 
@@ -16,31 +16,32 @@ Create a new file system that spies:
 import * as fs from 'fs';
 import {spy} from 'spyfs';
 
-
 const sfs = spy(fs);
 ```
 
 Subscribe to all actions happening on that filesystem:
 
 ```js
-sfs.subscribe(promise => {
+sfs.subscribe(action => {
     // ...
 });
 ```
 
-Now every time somebody uses `sfs` the subscription callback will be called.
+Now, every time somebody uses `sfs`, the subscription callback will be called.
+You will receive a single argument: an `action` which is a `Promise` object
+containing all the information about the performed filesystem action and its result.
 
 You can also subscribe by providing a listener at creation:
 
 ```js
-const sfs = spy(fs, promise => {
+const sfs = spy(fs, action => {
     // ...
 });
 ```
 
 ### Use `async/await`
 
-`spyfs` returns *actions* which are instances of `Promise` constructor,
+`spyfs` returns *actions* which are instances of the `Promise` constructor,
 so you can use *asynchronous* functions for convenience:
 
 ```js
@@ -55,7 +56,7 @@ sfs.readdir(__dirname, () => {});
 
 You can use `spyfs` with any *fs-like* object, including [`memfs`][memfs]:
 
-```
+```js
 import {fs} from 'memfs';
 import {spy} from "../src/index";
 
@@ -90,7 +91,8 @@ sfs.readdirSync('/');
 ### Subscribe to events
 
 The returned filesystem object is also an event emitter, you can subscribe
-to specific filesystem actions using the `.on()` method:
+to specific filesystem actions using the `.on()` method, in that case you
+will receive only actions for that method:
 
 ```js
 sfs.on('readdirSync', async function(action) {
@@ -98,6 +100,13 @@ sfs.on('readdirSync', async function(action) {
 });
 
 sfs.readdirSync('/');
+```
+
+Listening for `action` event is equivalent to subscribing using `.subscribe()`.
+
+``js
+sfs.on('action', listener);
+sfs.subscribe(listener);
 ```
 
 
