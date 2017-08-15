@@ -1,4 +1,4 @@
-# spyfs [![][npm-img]][npm-url]
+# spyfs [![npm-img]][npm-url]
 
 Spies on filesystem calls.
 
@@ -104,7 +104,7 @@ sfs.readdirSync('/');
 
 Listening for `action` event is equivalent to subscribing using `.subscribe()`.
 
-``js
+```js
 sfs.on('action', listener);
 sfs.subscribe(listener);
 ```
