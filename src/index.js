@@ -19,19 +19,7 @@ export class Spy extends EventEmitter {
         for(let method of fsSyncMethods) {
             const func = fs[method];
             if(typeof func !== 'function') continue;
-
-            this[method] = (...args) => {
-                try {
-                    const result = func.apply(fs, args);
-                    const action = createAction(method, false, args, resolve => resolve(result));
-                    this.emit(action);
-                    return result;
-                } catch (err) {
-                    const action = createAction(method, false, args, (resolve, reject) => reject(err));
-                    this.emit(action);
-                    throw err;
-                }
-            };
+            this[method] = this._createSyncMethod(fs, method, func);
         }
 
         for(let method of fsAsyncMethods) {
@@ -59,29 +47,141 @@ export class Spy extends EventEmitter {
                 continue;
             }
 
-            this[method] = (...args) => {
-                const callback = args[args.length - 1];
-                if(typeof callback !== 'function')
-                    return func.apply(fs, args);
+            this[method] = this._createAsyncMethod(fs, method, func);
+        }
+    }
 
-                const action = createAction(method, true, args.slice(0, args.length - 1), (resolve, reject) => {
-                    // Rewrite callback.
-                    args[args.length - 1] = (err, ...results) => {
-                        if(err) reject(err);
-                        else resolve(results.length > 1 ? results : results[0]);
-                        callback.apply(null, [err, ...results]);
-                    };
+    _createSyncMethod(fs, method, func) {
+        return (...args) => {
+            let result, error;
 
-                    try {
-                        func.apply(fs, args);
-                    } catch (err) {
-                        reject(err);
-                        throw err;
+            function exec() {
+                try {
+                    result = func.apply(fs, args);
+                    error = undefined;
+                } catch (reason) {
+                    result = undefined;
+                    error = reason;
+                }
+            }
+
+            function returnOrThrow() {
+                if(typeof result !== 'undefined') {
+                    return result;
+                } else {
+                    throw error;
+                }
+            }
+
+            const action = createAction(method, false, args, (resolve, reject) => {
+                process.nextTick(() => {
+                    if(typeof result !== 'undefined') resolve(result);
+                    else reject(error);
+                });
+            });
+
+            action.resolve = value => {
+                result = value;
+                error = undefined;
+            };
+
+            action.reject = reason => {
+                result = undefined;
+                error = reason;
+            };
+
+            action.exec = () => {
+                exec();
+                return returnOrThrow();
+            };
+
+            this.emit(action);
+
+            if(typeof result !== 'undefined') {
+                return result;
+            } else if(typeof error !== 'undefined') {
+                throw error;
+            } else {
+                exec();
+                return returnOrThrow();
+            }
+        };
+    }
+
+    _createAsyncMethod(fs, method, func) {
+        return (...args) => {
+            const callback = args[args.length - 1];
+            if(typeof callback !== 'function') return func.apply(fs, args);
+
+            let result, error, isPaused = false;
+
+            function exec(done) {
+                args[args.length - 1] = (reason, ...results) => {
+                    if(reason) {
+                        result = undefined;
+                        error = reason;
+                    } else {
+                        result = results.length > 1 ? results : results[0];
+                        error = undefined;
+                    }
+                    done(reason, ...results);
+                };
+
+                try {
+                    func.apply(fs, args);
+                } catch (reason) {
+                    result = undefined;
+                    error = reason;
+                    done(err);
+                }
+            }
+
+            function proceed() {
+                isPaused = false;
+            }
+
+            const action = createAction(method, false, args.slice(0, args.length - 1), (resolve, reject) => {
+
+                function finish() {
+                    if(typeof result !== 'undefined') {
+                        resolve(result);
+                    } else {
+                        callback(error);
+                    }
+                }
+
+                process.nextTick(() => {
+                    if(isPaused) {
+
+                    } else {
+                        exec(finish);
                     }
                 });
-                this.emit(action);
+            });
+
+            action.resolve = value => {
+                result = value;
+                error = undefined;
+                proceed();
             };
-        }
+
+            action.reject = reason => {
+                result = undefined;
+                error = reason;
+                proceed();
+            };
+
+            action.pause = (callback) => {
+                isPaused = true;
+                callback(proceed);
+            };
+
+            action.exec = (done) => {
+                exec(done);
+            };
+
+            this.emit(action);
+        };
     }
 
     emit(action) {

@@ -58,7 +58,7 @@ You can use `spyfs` with any *fs-like* object, including [`memfs`][memfs]:
 
 ```js
 import {fs} from 'memfs';
-import {spy} from "../src/index";
+import {spy} from 'spyfs';
 
 const sfs = spy(fs, async function(action) {
     console.log(await action); // bar
