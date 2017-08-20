@@ -2,7 +2,36 @@ import {fsSyncMethods, fsAsyncMethods} from 'fs-monkey/lib/util/lists';
 import {EventEmitter} from 'events';
 
 
-function createAction(method, isAsync, args, callback) {
+interface ActionBase extends Promise {
+    method: string,
+    isAsync: boolean,
+    args: any[],
+}
+
+interface ActionSync extends ActionBase {
+    result: ActionSync;
+    resolve: (result: any) => void;
+    reject: (error: Error) => void;
+    exec: (...args) => any;
+}
+
+interface ActionAsync extends ActionBase {
+    result: ActionAsync;
+    resolve: (results: any[]) => void;
+    reject: (error: Error) => void;
+    exec: () => Promise<any>;
+    pause: () => void;
+    unpause: () => void;
+    proceed: () => void;
+}
+
+type TListener = (action: ActionAsync | ActionAsync) => void;
+
+
+const noop = () => {};
+
+
+function createAction(method, isAsync, args, callback): ActionBase {
     const promise = new Promise(callback);
     promise.method = method;
     promise.isAsync = isAsync;
@@ -13,7 +42,7 @@ function createAction(method, isAsync, args, callback) {
 
 export class Spy extends EventEmitter {
 
-    constructor(fs) {
+    constructor(fs, listener: ?TListener) {
         super();
 
         for(let method of fsSyncMethods) {
@@ -26,29 +55,16 @@ export class Spy extends EventEmitter {
             const func = fs[method];
             if(typeof func !== 'function') continue;
 
-            // Special case.
+            // Special case, `exists` is not supported.
             if(method === 'exists') {
-                this[method]= (filename, callback) => {
-                    if(typeof callback !== 'function')
-                        return func.call(fs, filename, callback);
-                    const action = createAction(method, true, [filename, callback], resolve => {
-                        try {
-                            func.call(fs, filename, exists => {
-                                resolve(exists);
-                                callback(exists);
-                            });
-                        } catch (err) {
-                            reject(err);
-                            throw err;
-                        }
-                    });
-                    this.emit(action);
-                };
+                this[method] = fs[method].bind(fs);
                 continue;
             }
 
             this[method] = this._createAsyncMethod(fs, method, func);
         }
+
+        if(listener) this.subscribe(listener);
     }
 
     _createSyncMethod(fs, method, func) {
@@ -97,6 +113,11 @@ export class Spy extends EventEmitter {
                 return returnOrThrow();
             };
 
+            // To disable Node's:
+            // DeprecationWarning: Unhandled promise rejections are deprecated. In the future, promise rejections
+            // that are not handled will terminate the Node.js process with a non-zero exit code.
+            action.catch(noop);
+
             this.emit(action);
 
             if(typeof result !== 'undefined') {
@@ -115,8 +136,8 @@ export class Spy extends EventEmitter {
      *
      *     1. User does not intervene, call is simply executed
      *     2. User immediately (same event loop cycle) `.reject`s or `.resolve`s the action.
-     *     3. Use pauses the action and then:
-     *         3.1 Unpauses
+     *     3. Use rpauses the action and then:
+     *         3.1 Unpauses, or
      *         3.2 Rejects or resolves
      *
      * User should be able to pause, reject, and resolve only once.
@@ -171,6 +192,11 @@ export class Spy extends EventEmitter {
                     func.apply(fs, args);
                 });
 
+                // To disable Node's:
+                // DeprecationWarning: Unhandled promise rejections are deprecated. In the future, promise rejections
+                // that are not handled will terminate the Node.js process with a non-zero exit code.
+                _exec.catch(noop);
+
                 return _exec;
             }
 
@@ -182,7 +208,7 @@ export class Spy extends EventEmitter {
             }
 
 
-            const action = createAction(method, false, args.slice(0, args.length - 1), (resolve, reject) => {
+            const action = createAction(method, true, args.slice(0, args.length - 1), (resolve, reject) => {
                 _resolve = resolve;
                 _reject = reject;
 
@@ -209,6 +235,11 @@ export class Spy extends EventEmitter {
             };
             action.unpause = proceed;
             action.proceed = proceed;
+
+            // To disable Node's:
+            // DeprecationWarning: Unhandled promise rejections are deprecated. In the future, promise rejections
+            // that are not handled will terminate the Node.js process with a non-zero exit code.
+            action.catch(noop);
         };
     }
 
@@ -217,8 +248,12 @@ export class Spy extends EventEmitter {
         super.emit(action.method, action);
     }
 
-    subscribe(listener) {
+    subscribe(listener: (action: ActionSync | ActionAsync) => void) {
         this.addListener('action', listener);
+    }
+
+    unsubscribe(listener: ?(action: ActionSync | ActionAsync) => void) {
+        this.removeListener('action', listener);
     }
 }
 

@@ -28,6 +28,7 @@
     "ts-node": "3.3.0",
     "babel-cli": "6.24.1",
     "babel-preset-es2015": "6.24.1",
+    "babel-preset-flow": "^6.23.0",
     "gulp": "3.9.1",
     "gulp-typescript": "3.2.1",
     "source-map-support": "0.4.15",
@@ -64,9 +65,9 @@
     "build-ts": "gulp build-ts",
     "build-js": "babel src --out-dir lib",
     "test": "npm run test-basic-js",
-    "test-basic-js": "mocha lib/**/*.test.js",
-    "test-watch-js": "mocha src/**/*.test.js --watch",
-    "test-coverage-ts": "nyc --per-file mocha --require source-map-support/register --full-trace --bail src/**/*.test.js",
+    "test-basic-js": "mocha --compilers js:babel-core/register src/**/*.test.js",
+    "test-watch-js": "mocha --compilers js:babel-core/register src/**/*.test.js --watch",
+    "test-coverage-ts": "nyc --per-file mocha --compilers js:babel-core/register --require source-map-support/register --full-trace --bail src/**/*.test.js",
     "watch": "watch 'npm run build' ./src"
   }
 }
