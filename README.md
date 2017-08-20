@@ -1,14 +1,10 @@
 # spyfs [![npm-img]][npm-url]
 
-Spies on filesystem calls.
+Spy on filesystem calls. Create file system mocks. Use for testing.
 
 Install:
 
     npm install --save spyfs
-
-    or
-
-    yarn add spyfs
 
 Create a new file system that spies:
 
@@ -19,7 +15,8 @@ import {spy} from 'spyfs';
 const sfs = spy(fs);
 ```
 
-Subscribe to all actions happening on that filesystem:
+Now you can use `sfs` for all your filesystem operations. Subscribe to
+all actions happening on that filesystem:
 
 ```js
 sfs.subscribe(action => {
@@ -27,9 +24,9 @@ sfs.subscribe(action => {
 });
 ```
 
-Now, every time somebody uses `sfs`, the subscription callback will be called.
+Every time somebody uses `sfs`, the subscription callback will be called.
 You will receive a single argument: an `action` which is a `Promise` object
-containing all the information about the performed filesystem action and its result.
+containing all the information about the performed filesystem operation and its result.
 
 You can also subscribe by providing a listener at creation:
 
@@ -38,6 +35,19 @@ const sfs = spy(fs, action => {
     // ...
 });
 ```
+
+
+### Want to spy on real filesystem?
+
+Overwrite the real `fs` module using [`fs-monkey`]([fs-monkey]) to spy on all filesystem
+calls:
+
+```js
+import {patchFs} from 'fs-monkey';
+
+patchFs(sfs);
+```
+
 
 ### Use `async/await`
 
@@ -49,8 +59,9 @@ const sfs = spy(fs, async function(action) {
     console.log(await action); // prints directory files...
 });
 
-sfs.readdir(__dirname, () => {});
+sfs.readdir('/', () => {});
 ```
+
 
 ### Use with [`memfs`][memfs]
 
@@ -58,7 +69,7 @@ You can use `spyfs` with any *fs-like* object, including [`memfs`][memfs]:
 
 ```js
 import {fs} from 'memfs';
-import {spy} from "../src/index";
+import {spy} from 'spyfs';
 
 const sfs = spy(fs, async function(action) {
     console.log(await action); // bar
@@ -67,6 +78,7 @@ const sfs = spy(fs, async function(action) {
 sfs.writeFile('/foo', 'bar', () => {});
 sfs.readFile('/foo', 'utf8', () => {});
 ```
+
 
 ### Action properties
 
@@ -88,6 +100,7 @@ sfs.readdir('/', () => {});
 sfs.readdirSync('/');
 ```
 
+
 ### Subscribe to events
 
 The returned filesystem object is also an event emitter, you can subscribe
@@ -108,6 +121,200 @@ Listening for `action` event is equivalent to subscribing using `.subscribe()`.
 sfs.on('action', listener);
 sfs.subscribe(listener);
 ```
+
+
+## Mock responses
+
+You can overwrite what is returned by the filesystem call at runtime or even
+throw your custom errors, this way you can mock any filesystem call:
+
+For example, prohibit `readFileSync` for `/usr/foo/.bashrc` file:
+
+```js
+sfs.on('readFileSync', ({args, reject}) => {
+    if(args[0] === '/usr/foo/.bashrc')
+        reject(new Error("Cant't touch this!"));
+});
+```
+
+
+### Sync mocking
+
+#### `action.resolve(result)`
+
+Returns to the user `result` as successfully executed action, below
+all operations `readFileSync` will return `'123'`:
+
+```js
+sfs.on('readFileSync', action => {
+    action.resolve('123');
+});
+```
+
+#### `action.reject(error)`
+
+Throws `error`:
+
+```js
+sfs.on('statSync', action => {
+    action.reject(new Error('This filesystem does not support stat'));
+});
+```
+
+#### `action.exec()`
+
+Executes an action user was intended to perform and returns back result
+only to you. This method can throw.
+
+```js
+sfs.on('readFileSync', action => {
+    const result = action.exec();
+    if(result.length > 100) action.reject(new Error('File too long'));
+});
+```
+
+#### `action.result`
+
+`result` is a reference to the `action` for your convenience:
+
+### Async mocking
+
+Just like sync mocking actions support `resolve`, `reject` and `exec` methods,
+but, in addition, async mocking also has `pause` and `unpause` methods.
+
+#### `action.resolve(results)`
+
+Successfully executes user's filesystem call. `results` is an array, because
+some Node's async filesystem calls return more than one result.
+
+```js
+sfs.on('readFile', ({resolve}) => {
+    resolve(['123']);
+});
+```
+
+#### `action.reject(error)`
+
+Fails filesystem call and returns your specified error.
+
+```js
+sfs.on('readFile', ({reject}) => {
+    reject(new Error('You cannot touch this file!'));
+});
+```
+
+#### `action.pause()`
+
+Pauses the async filesystem call until you un-pause it.
+
+```js
+sfs.on('readFile', ({pause}) => {
+    pause();
+    // The readFile operation will never end,
+    // if you don't unpause it.
+});
+```
+
+Pausing is useful if you want to perform some other async IO before yielding
+back to the original filesystem operation.
+
+#### `action.unpause()`
+
+Un-pauses previously pauses filesystem operation:
+
+```js
+sfs.on('readFile', ({pause, unpause}) => {
+    // This effectively does nothing:
+    pause();
+    unpause();
+});
+```
+
+#### `action.exec()`
+
+Executes user's intended filesystem call and returns the result only to you.
+Unlike the sync version `exec`, async `exec` returns a promise.
+
+You should use it together with `pause()` and `unpause()`.
+
+```js
+sfs.on('readFile', ({exec, pause, unpause, reject}) => {
+    pause();
+    exec().then(result => {
+        if(result.length < 100) {
+            reject(new Error('File too small'));
+        } else {
+            unpause();
+        }
+    });
+});
+```
+
+Use `async/await` with `exec()`:
+
+```js
+sfs.on('readFile', async function({exec, pause, unpause, reject}) {
+    pause();
+    let result = await exec();
+    if(result.length < 100) {
+        reject(new Error('File too small'));
+    } else {
+        unpause();
+    }
+});
+```
+
+#### `action.result`
+
+`result` is a reference to the `action` for your convenience:
+
+
+## `Spy` constructor
+
+Create spying filesystems manually:
+
+```js
+import {Spy} from 'spyfs';
+```
+
+#### `new Spy(fs[, listener])`
+
+`fs` is the file system to spy on. Note that `Spy` will not overwrite or
+in any way modify your original filesystem, but rather it will create a
+new object for you.
+
+`listener` is an optional callback that will be set using the `.subscribe()`
+method, see below.
+
+#### `sfs.subscribe(listener)`
+
+Subscribe to all filesystem actions:
+
+```js
+const sfs = new Spy(fs);
+sfs.subscribe(action => {
+
+});
+```
+
+It is equivalent to calling `sfs.on('action', listener)`.
+
+#### `sfs.unsubscribe(listener)`
+
+Unsubscribes your listener. It is equivalent to calling `sfs.off('action', listener)`.
+
+#### `sfs.on(method, listener)`
+
+Subscribes to a specific filesystem call.
+
+```js
+sfs.on('readFile', listener);
+```
+
+#### `sfs.off(method, listener)`
+
+Unsubscribes from a specific filesystem call.
+
 
 
 [npm-url]: https://www.npmjs.com/package/spyfs
