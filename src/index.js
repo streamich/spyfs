@@ -162,6 +162,7 @@ export class Spy extends EventEmitter {
             function resolve(value) {
                 if(!finished) {
                     finished = true;
+                    value = value instanceof Array ? value : [value];
                     _resolve(value);
                     if(value instanceof Array) callback(null, ...value);
                     else callback(null, value);
@@ -254,6 +255,14 @@ export class Spy extends EventEmitter {
 
     unsubscribe(listener: ?(action: ActionSync | ActionAsync) => void) {
         this.removeListener('action', listener);
+    }
+
+    on(event, listener) {
+        this.addListener(event, listener);
+    }
+
+    off(event, listener) {
+        this.removeListener(event, listener);
     }
 }
 
