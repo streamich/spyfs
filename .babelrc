@@ -1,8 +1,4 @@
 {
   "presets": ["es2015"],
-  "comments": false,
-  "ignore": [
-    "spec.js",
-    "test.js"
-  ]
+  "comments": false
 }

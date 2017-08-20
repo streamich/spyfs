@@ -80,6 +80,8 @@ export class Spy extends EventEmitter {
                 });
             });
 
+            action.result = action;
+
             action.resolve = value => {
                 result = value;
                 error = undefined;
@@ -108,79 +110,105 @@ export class Spy extends EventEmitter {
         };
     }
 
+    /**
+     * Ways async methods can be executed:
+     *
+     *     1. User does not intervene, call is simply executed
+     *     2. User immediately (same event loop cycle) `.reject`s or `.resolve`s the action.
+     *     3. Use pauses the action and then:
+     *         3.1 Unpauses
+     *         3.2 Rejects or resolves
+     *
+     * User should be able to pause, reject, and resolve only once.
+     *
+     * @param fs
+     * @param method
+     * @param func
+     * @returns {function(...[*]=)}
+     * @private
+     */
     _createAsyncMethod(fs, method, func) {
         return (...args) => {
             const callback = args[args.length - 1];
             if(typeof callback !== 'function') return func.apply(fs, args);
 
-            let result, error, isPaused = false;
+            let paused = false, proceeding = false, finished = false;
 
-            function exec(done) {
-                args[args.length - 1] = (reason, ...results) => {
-                    if(reason) {
-                        result = undefined;
-                        error = reason;
-                    } else {
-                        result = results.length > 1 ? results : results[0];
-                        error = undefined;
-                    }
-                    done(reason, ...results);
-                };
 
-                try {
-                    func.apply(fs, args);
-                } catch (reason) {
-                    result = undefined;
-                    error = reason;
-                    done(err);
+            // The actual resolve and reject methods from the action Promise.
+            let _resolve, _reject;
+
+            function resolve(value) {
+                if(!finished) {
+                    finished = true;
+                    _resolve(value);
+                    if(value instanceof Array) callback(null, ...value);
+                    else callback(null, value);
                 }
             }
 
-            function proceed() {
-                isPaused = false;
+            function reject(reason) {
+                if(!finished) {
+                    finished = true;
+                    _reject(reason);
+                    callback(reason);
+                }
             }
+
+
+            // Cache for `exec`
+            let _exec;
+
+            // Executes the real filesystem call.
+            function exec() {
+                if(_exec) return _exec;
+
+                _exec = new Promise((resolve, reject) => {
+                    args[args.length - 1] = (reason, ...results) => {
+                        if(reason) reject(reason);
+                        else resolve(results);
+                    };
+                    func.apply(fs, args);
+                });
+
+                return _exec;
+            }
+
+
+            // Proceed with executing the real fs call.
+            function proceed() {
+                proceeding = true;
+                exec().then(result => resolve(result), err => reject(err));
+            }
+
 
             const action = createAction(method, false, args.slice(0, args.length - 1), (resolve, reject) => {
-
-                function finish() {
-                    if(typeof result !== 'undefined') {
-                        resolve(result);
-                    } else {
-                        callback(error);
-                    }
-                }
+                _resolve = resolve;
+                _reject = reject;
 
                 process.nextTick(() => {
-                    if(isPaused) {
-
-                    } else {
-                        exec(finish);
-                    }
+                    this.emit(action);
+                    setImmediate(() => {
+                        if(!paused && !proceeding) proceed();
+                    });
                 });
             });
 
-            action.resolve = value => {
-                result = value;
-                error = undefined;
-                proceed();
-            };
+            action.result = action;
+            action.exec = exec;
+            action.resolve = resolve;
+            action.reject = reject;
 
-            action.reject = reason => {
-                result = undefined;
-                error = reason;
-                proceed();
+            action.pause = (cb) => {
+                if(proceeding)
+                    throw Error('Cannot pause anymore, already executing the real filesystem call.');
+                if(paused)
+                    throw Error('Already paused once.');
+                paused = true;
+                if(cb) cb(proceed);
             };
-
-            action.pause = (callback) => {
-                isPaused = true;
-                callback(proceed);
-            };
-
-            action.exec = (done) => {
-                exec(done);
-            };
-
-            this.emit(action);
+            action.unpause = proceed;
+            action.proceed = proceed;
         };
     }
 
