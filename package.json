@@ -1,6 +1,6 @@
 {
   "name": "spyfs",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Filesystem spy",
   "main": "lib/index.js",
   "keywords": [
@@ -27,7 +27,11 @@
     "typescript": "2.4.2",
     "ts-node": "3.3.0",
     "babel-cli": "6.24.1",
+    "babel-polyfill": "^6.26.0",
+    "babel-preset-stage-0": "^6.24.1",
     "babel-preset-es2015": "6.24.1",
+    "babel-preset-es2016": "^6.24.1",
+    "babel-preset-es2017": "^6.24.1",
     "babel-preset-flow": "^6.23.0",
     "gulp": "3.9.1",
     "gulp-typescript": "3.2.1",
@@ -65,9 +69,9 @@
     "build-ts": "gulp build-ts",
     "build-js": "babel src --out-dir lib",
     "test": "npm run test-basic-js",
-    "test-basic-js": "mocha --compilers js:babel-core/register src/**/*.test.js",
-    "test-watch-js": "mocha --compilers js:babel-core/register src/**/*.test.js --watch",
-    "test-coverage-ts": "nyc --per-file mocha --compilers js:babel-core/register --require source-map-support/register --full-trace --bail src/**/*.test.js",
+    "test-basic-js": "mocha --compilers js:babel-core/register --require babel-polyfill src/**/*.test.js",
+    "test-watch-js": "mocha --compilers js:babel-core/register --require babel-polyfill src/**/*.test.js --watch",
+    "test-coverage-ts": "nyc --per-file mocha --compilers js:babel-core/register --require babel-polyfill --require source-map-support/register --full-trace --bail src/**/*.test.js",
     "watch": "watch 'npm run build' ./src"
   }
 }
