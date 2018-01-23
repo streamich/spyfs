@@ -34,7 +34,7 @@
     "babel-preset-es2017": "6.24.1",
     "babel-preset-flow": "6.23.0",
     "gulp": "3.9.1",
-    "gulp-typescript": "3.2.3",
+    "gulp-typescript": "3.2.4",
     "source-map-support": "0.5.2",
     "nyc": "11.4.1",
     "watch": "1.0.2",
