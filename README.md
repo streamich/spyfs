@@ -15,8 +15,13 @@ import {spy} from 'spyfs';
 const sfs = spy(fs);
 ```
 
-Now you can use `sfs` for all your filesystem operations. Subscribe to
-all actions happening on that filesystem:
+Now you can use `sfs` for all your filesystem operations.
+
+```js
+const data = sfs.readFileSync('./package.json').toString();
+```
+
+Subscribe to all actions happening on that filesystem:
 
 ```js
 sfs.subscribe(action => {
