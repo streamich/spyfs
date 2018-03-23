@@ -44,7 +44,7 @@ const sfs = spy(fs, action => {
 
 ### Want to spy on real filesystem?
 
-Overwrite the real `fs` module using [`fs-monkey`]([fs-monkey]) to spy on all filesystem
+Overwrite the real `fs` module using [`fs-monkey`][fs-monkey] to spy on all filesystem
 calls:
 
 ```js
