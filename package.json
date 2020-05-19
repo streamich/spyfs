@@ -38,7 +38,7 @@
     "source-map-support": "0.5.19",
     "nyc": "12.0.2",
     "watch": "1.0.2",
-    "memfs": "2.17.1"
+    "memfs": "3.2.0"
   },
   "nyc": {
     "per-file": true,
