@@ -22,7 +22,7 @@
     "fs-monkey": "0.3.3"
   },
   "devDependencies": {
-    "mocha": "5.2.0",
+    "mocha": "8.2.1",
     "chai": "4.2.0",
     "typescript": "2.9.2",
     "ts-node": "9.1.1",
