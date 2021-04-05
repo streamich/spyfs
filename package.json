@@ -19,7 +19,7 @@
     "url": "https://github.com/streamich/spyfs.git"
   },
   "dependencies": {
-    "fs-monkey": "0.4.0"
+    "fs-monkey": "1.0.3"
   },
   "devDependencies": {
     "mocha": "8.3.2",
