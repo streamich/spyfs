@@ -35,7 +35,7 @@
     "babel-preset-flow": "6.23.0",
     "gulp": "4.0.2",
     "gulp-typescript": "5.0.1",
-    "source-map-support": "0.5.20",
+    "source-map-support": "0.5.21",
     "nyc": "15.1.0",
     "watch": "1.0.2",
     "memfs": "3.3.0"
