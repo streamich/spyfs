@@ -33,7 +33,7 @@
     "babel-preset-es2016": "6.24.1",
     "babel-preset-es2017": "6.24.1",
     "babel-preset-flow": "6.23.0",
-    "gulp": "4.0.2",
+    "gulp": "5.0.0",
     "gulp-typescript": "5.0.1",
     "source-map-support": "0.5.21",
     "nyc": "15.1.0",
