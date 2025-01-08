@@ -24,7 +24,7 @@
   "devDependencies": {
     "mocha": "11.0.1",
     "chai": "5.1.2",
-    "typescript": "5.7.2",
+    "typescript": "5.7.3",
     "ts-node": "10.9.2",
     "babel-cli": "6.26.0",
     "babel-polyfill": "6.26.0",
